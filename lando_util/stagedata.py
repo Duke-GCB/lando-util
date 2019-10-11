@@ -4,6 +4,7 @@ import os
 import zipfile
 import urllib.request
 from ddsc.sdk.client import Client as DukeDSClient
+from ddsc.core.localstore import HashData
 
 
 def get_stage_items(cmdfile):
@@ -41,10 +42,23 @@ def stage_data(dds_client, stage_items):
 
 
 def download_dukeds_file(dds_client, source, dest):
-    click.echo("Downloading DukeDS file {} to {}.".format(source, dest))
     dds_file = dds_client.get_file_by_id(file_id=source)
-    dds_file.download_to_path(dest)
+    if local_file_matches_remote(local_file_path=dest, dds_file=dds_file):
+        click.echo("DukeDS file {} matches {}.".format(source, dest))
+    else:
+        click.echo("Downloading DukeDS file {} to {}.".format(source, dest))
+        dds_file.download_to_path(dest)
     return dds_file._data_dict
+
+
+def local_file_matches_remote(local_file_path, dds_file):
+    if os.path.exists(local_file_path):
+        hash_data = HashData.create_from_path(local_file_path)
+        remote_hash_dict = dds_file.get_hash()
+        return hash_data.matches(
+            hash_alg=remote_hash_dict['algorithm'],
+            hash_value=remote_hash_dict['value'])
+    return False
 
 
 def download_url(source, dest):
