@@ -146,7 +146,7 @@ class TestDownloadFunctions(TestCase):
         result = download_dukeds_file(mock_dds_client, 'abc123', "/data/file1.dat")
 
         mock_click.echo.assert_has_calls([
-            call("DukeDS file abc123 matches /data/file1.dat."),
+            call("Local file /data/file1.dat already matches DukeDS file abc123."),
         ])
         self.assertEqual(result, mock_dds_client.get_file_by_id.return_value._data_dict)
 

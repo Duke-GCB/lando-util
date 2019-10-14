@@ -44,7 +44,7 @@ def stage_data(dds_client, stage_items):
 def download_dukeds_file(dds_client, source, dest):
     dds_file = dds_client.get_file_by_id(file_id=source)
     if local_file_matches_remote(local_file_path=dest, dds_file=dds_file):
-        click.echo("DukeDS file {} matches {}.".format(source, dest))
+        click.echo("Local file {} already matches DukeDS file {}.".format(dest, source))
     else:
         click.echo("Downloading DukeDS file {} to {}.".format(source, dest))
         dds_file.download_to_path(dest)
