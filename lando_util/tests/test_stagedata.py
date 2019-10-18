@@ -2,7 +2,8 @@ import os
 import json
 from unittest import TestCase
 from unittest.mock import patch, Mock, call
-from lando_util.stagedata import get_stage_items, stage_data, write_downloaded_metadata, main
+from lando_util.stagedata import get_stage_items, stage_data, write_downloaded_metadata, main, download_dukeds_file, \
+    local_file_matches_remote
 
 
 class TestDownloadFunctions(TestCase):
@@ -30,12 +31,17 @@ class TestDownloadFunctions(TestCase):
     @patch("lando_util.stagedata.os")
     @patch("lando_util.stagedata.urllib")
     @patch("lando_util.stagedata.zipfile")
+    @patch("lando_util.stagedata.HashData")
     @patch("builtins.open")
     @patch("lando_util.stagedata.click")
-    def test_stage_data(self, mock_click, mock_open, mock_zipfile, mock_urllib, mock_os):
+    def test_stage_data(self, mock_click, mock_open, mock_hash_data, mock_zipfile, mock_urllib, mock_os):
+        mock_hash_data.create_from_path.return_value.matches.return_value = False
+        mock_os.path.exists.return_value = True
         mock_os.path.dirname = lambda x: os.path.dirname(x)
         mock_dds_client = Mock()
-        mock_dds_client.get_file_by_id.return_value = Mock(_data_dict={"current_version": {"id": "999"}})
+        mock_dds_file = Mock(_data_dict={"current_version": {"id": "999"}})
+        mock_dds_file.get_hash.return_value = {"algorithm": "md5", "value": "abc123"}
+        mock_dds_client.get_file_by_id.return_value = mock_dds_file
         stage_items = [
             ("DukeDS", "123456", "/data/file1.dat", None),
             ("url", "someurl", "/data/file2.dat", None),
@@ -130,3 +136,50 @@ class TestDownloadFunctions(TestCase):
         mock_get_stage_items.assert_called_with(mock_cmdfile)
         mock_stage_data.assert_called_with(mock_duke_ds_client.return_value, mock_get_stage_items.return_value)
         mock_write_downloaded_metadata.assert_called_with(mock_metadata_file, mock_stage_data.return_value)
+
+    @patch("lando_util.stagedata.click")
+    @patch("lando_util.stagedata.local_file_matches_remote")
+    def test_download_dukeds_file__local_file_matches_remote(self, mock_local_file_matches_remote, mock_click):
+        mock_dds_client = Mock()
+        mock_local_file_matches_remote.return_value = True
+
+        result = download_dukeds_file(mock_dds_client, 'abc123', "/data/file1.dat")
+
+        mock_click.echo.assert_has_calls([
+            call("Local file /data/file1.dat already matches DukeDS file abc123."),
+        ])
+        self.assertEqual(result, mock_dds_client.get_file_by_id.return_value._data_dict)
+
+    @patch("lando_util.stagedata.os")
+    @patch("lando_util.stagedata.HashData")
+    def test_local_file_matches_remote__no_local_file(self, mock_hash_data, mock_os):
+        mock_os.path.exists.return_value = False
+        self.assertEqual(local_file_matches_remote(local_file_path='file1.txt', dds_file=Mock()), False)
+
+    @patch("lando_util.stagedata.os")
+    @patch("lando_util.stagedata.HashData")
+    def test_local_file_matches_remote__local_file_mismatch(self, mock_hash_data, mock_os):
+        mock_os.path.exists.return_value = True
+        mock_hash_data.create_from_path.return_value.matches.return_value = False
+        mock_dds_file = Mock()
+        mock_dds_file.get_hash.return_value = {
+            "algorithm": "md5",
+            "value": "abc123",
+        }
+        self.assertEqual(local_file_matches_remote(local_file_path='file1.txt', dds_file=mock_dds_file), False)
+        mock_hash_data.create_from_path.assert_called_with('file1.txt')
+        mock_hash_data.create_from_path.return_value.matches.assert_called_with(hash_alg='md5', hash_value='abc123')
+
+    @patch("lando_util.stagedata.os")
+    @patch("lando_util.stagedata.HashData")
+    def test_local_file_matches_remote__local_file_matches(self, mock_hash_data, mock_os):
+        mock_os.path.exists.return_value = True
+        mock_hash_data.create_from_path.return_value.matches.return_value = True
+        mock_dds_file = Mock()
+        mock_dds_file.get_hash.return_value = {
+            "algorithm": "md5",
+            "value": "abc123",
+        }
+        self.assertEqual(local_file_matches_remote(local_file_path='file1.txt', dds_file=mock_dds_file), True)
+        mock_hash_data.create_from_path.assert_called_with('file1.txt')
+        mock_hash_data.create_from_path.return_value.matches.assert_called_with(hash_alg='md5', hash_value='abc123')
