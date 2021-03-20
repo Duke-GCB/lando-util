@@ -30,7 +30,7 @@ setup(name='lando-util',
       packages=['lando_util', 'lando_util.organize_project'],
       install_requires=[
           'click==7.0',
-          'Jinja2==2.10.1',
+          'Jinja2==2.11.3',
           'DukeDSClient==2.2.0',
           'humanfriendly==2.4',
           'python-dateutil==2.6.0',
