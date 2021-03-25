@@ -35,7 +35,7 @@ setup(name='lando-util',
           'humanfriendly==2.4',
           'python-dateutil==2.6.0',
           'Markdown==2.6.9',
-          'PyYAML==5.1',
+          'PyYAML==5.4',
       ],
       zip_safe=False,
       cmdclass={
